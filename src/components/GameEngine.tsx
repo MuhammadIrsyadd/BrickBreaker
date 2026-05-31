@@ -3,7 +3,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { getLevel, BRICK_CONFIG } from '../utils/levelsConfiguration';
 import type { BrickType } from '../utils/levelsConfiguration';
 import { audio } from '../utils/audioGenerator';
-import { useKeyPress } from '../hooks/useKeyPress';
 import Scoreboard from './Scoreboard';
 import MenuOverlay from './MenuOverlay';
 
@@ -11,7 +10,7 @@ const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 const PADDLE_WIDTH = 120;
 const PADDLE_HEIGHT = 15;
-const PADDLE_SPEED = 8;
+const PADDLE_SPEED = 10;
 const BALL_RADIUS = 8;
 
 type GameState = 'START_MENU' | 'PLAYING' | 'PAUSED' | 'GAME_OVER' | 'LEVEL_COMPLETED' | 'GAME_CLEAR';
@@ -33,9 +32,8 @@ const GameEngine: React.FC = () => {
   const [level, setLevel] = useState(1);
   const [lives, setLives] = useState(3);
 
-  // Keyboard controls
-  const leftPressed = useKeyPress('ArrowLeft');
-  const rightPressed = useKeyPress('ArrowRight');
+  // Keyboard state tracking with ref to avoid stale closures
+  const keysPressed = useRef<{ [key: string]: boolean }>({});
 
   // Mutable game state (for performance)
   const ballPos = useRef({ x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT - 50 });
@@ -45,6 +43,21 @@ const GameEngine: React.FC = () => {
   const particles = useRef<Particle[]>([]);
   const animationFrameId = useRef<number | null>(null);
   const shakeTime = useRef(0);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      keysPressed.current[e.key] = true;
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      keysPressed.current[e.key] = false;
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem('retro_bounce_highscore');
@@ -132,10 +145,10 @@ const GameEngine: React.FC = () => {
     if (shakeTime.current > 0) shakeTime.current -= 16;
 
     // Paddle movement (Keyboard)
-    if (leftPressed) {
+    if (keysPressed.current['ArrowLeft']) {
       paddleX.current = Math.max(0, paddleX.current - PADDLE_SPEED);
     }
-    if (rightPressed) {
+    if (keysPressed.current['ArrowRight']) {
       paddleX.current = Math.min(CANVAS_WIDTH - PADDLE_WIDTH, paddleX.current + PADDLE_SPEED);
     }
 
